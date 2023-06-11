@@ -70,10 +70,26 @@ async function run() {
             next();
         }
 
+        // use verifyJWT before using verifyInstructor
+        const verifyInstructor = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query);
+            if (user?.role !== 'instructor') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        }
+
 
         // users related apis
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
             const result = await usersCollection.find().toArray();
+            res.send(result);
+        });
+
+        app.get('/instructors', verifyJWT, async (req, res) => {
+            const result = await usersCollection.find({ role: "instructor" }).toArray();
             res.send(result);
         });
 
@@ -181,6 +197,38 @@ async function run() {
             const item = req.body;
             const result = await selectedClassesCollection.insertOne(item);
             res.send(result);
+        })
+
+        // make admin
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                },
+            };
+
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
+
+        // make instructor
+        app.patch('/users/instructor/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    role: 'instructor'
+                },
+            };
+
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
         })
 
         // All delete items
