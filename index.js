@@ -3,7 +3,7 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
-// const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 
@@ -179,6 +179,21 @@ async function run() {
             res.send(result);
         });
 
+        app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            if (!price) return;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                payment_method_types: ["card"],
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
+
         app.post('/users', async (req, res) => {
             const user = req.body;
             const query = { email: user.email }
@@ -227,6 +242,38 @@ async function run() {
             };
 
             const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
+
+        // class approve
+        app.patch('/classes/approve/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: 'approved'
+                },
+            };
+
+            const result = await classesCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
+
+        // class deny
+        app.patch('/classes/deny/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: 'denied'
+                },
+            };
+
+            const result = await classesCollection.updateOne(filter, updateDoc);
             res.send(result);
 
         })
