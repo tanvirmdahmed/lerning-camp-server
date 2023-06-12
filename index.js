@@ -153,7 +153,14 @@ async function run() {
             res.send(result);
         })
 
-
+        // app.get('/selectedClasses', async (req, res) => {
+        //     let query = {};
+        //     if (req.query?.email) {
+        //         query = { email: req.query.email }
+        //     }
+        //     const result = await selectedClassesCollection.find(query).toArray();
+        //     res.send(result);
+        // })
 
         app.get('/selectedClasses', verifyJWT, async (req, res) => {
             const email = req.query.email;
