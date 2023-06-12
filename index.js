@@ -179,6 +179,29 @@ async function run() {
             res.send(result);
         });
 
+
+        // my classes (instructor)
+        app.get('/myClasses', verifyJWT, verifyInstructor, async (req, res) => {
+            const email = req.query.email;
+            console.log(email);
+
+            if (!email) {
+                res.send([]);
+                return;
+            }
+
+            const decodedEmail = req.decoded.email;
+            if (email !== decodedEmail) {
+                return res.status(403).send({ error: true, message: 'forbidden access' })
+            }
+
+            const query = {
+                instructorEmail: email
+            };
+            const result = await classesCollection.find(query).toArray();
+            res.send(result);
+        });
+
         app.post("/create-payment-intent", verifyJWT, async (req, res) => {
             const { price } = req.body;
             const amount = parseInt(price * 100);
@@ -214,6 +237,33 @@ async function run() {
             res.send(result);
         })
 
+        // add class by post
+        app.post('/classes', async (req, res) => {
+            const item = req.body;
+            const result = await classesCollection.insertOne(item);
+            res.send(result);
+        })
+
+        // my class update
+        app.put('/classes/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) }
+            const options = { upsert: true };
+            const updatedClass = req.body;
+
+            const cls = {
+                $set: {
+                    className: updatedClass.className,
+                    classImage: updatedClass.classImage,
+                    availableSeats: updatedClass.availableSeats,
+                    price: updatedClass.price
+                }
+            }
+            console.log(cls);
+            const result = await classesCollection.updateOne(filter, cls, options);
+            res.send(result);
+        })
+
         // make admin
         app.patch('/users/admin/:id', async (req, res) => {
             const id = req.params.id;
@@ -245,6 +295,27 @@ async function run() {
             res.send(result);
 
         })
+
+        // send feedback
+        app.patch('/classes/feedback/:id', async (req, res) => {
+            const id = req.params.id;
+            const { feedback } = req.body;
+
+            try {
+                const filter = { _id: new ObjectId(id) };
+                const updateDoc = {
+                    $set: {
+                        feedback: feedback,
+                    },
+                };
+
+                const result = await classesCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send("Internal Server Error");
+            }
+        });
 
         // class approve
         app.patch('/classes/approve/:id', async (req, res) => {
