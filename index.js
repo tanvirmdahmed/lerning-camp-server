@@ -50,6 +50,7 @@ async function run() {
         const usersCollection = client.db("learningCamp").collection("users");
         const classesCollection = client.db("learningCamp").collection("classes");
         const selectedClassesCollection = client.db("learningCamp").collection("selectedClasses");
+        const paymentsCollection = client.db("learningCamp").collection("payments");
 
 
         app.post('/jwt', (req, res) => {
@@ -180,6 +181,51 @@ async function run() {
         });
 
 
+        // my enrollment
+        app.get('/myEnrolledClasses', verifyJWT, async (req, res) => {
+            const email = req.query.email;
+            console.log(email);
+
+            if (!email) {
+                res.send([]);
+                return;
+            }
+
+            const decodedEmail = req.decoded.email;
+            if (email !== decodedEmail) {
+                return res.status(403).send({ error: true, message: 'forbidden access' })
+            }
+
+            const query = {
+                email: email
+            };
+            const result = await paymentsCollection.find(query).toArray();
+            res.send(result);
+        });
+
+        // my enrollment
+        app.get('/myPaymentHistory', verifyJWT, async (req, res) => {
+            const email = req.query.email;
+            console.log(email);
+
+            if (!email) {
+                res.send([]);
+                return;
+            }
+
+            const decodedEmail = req.decoded.email;
+            if (email !== decodedEmail) {
+                return res.status(403).send({ error: true, message: 'forbidden access' })
+            }
+
+            const query = {
+                email: email
+            };
+            const result = await paymentsCollection.find(query).toArray();
+            res.send(result);
+        });
+
+
         // my classes (instructor)
         app.get('/myClasses', verifyJWT, verifyInstructor, async (req, res) => {
             const email = req.query.email;
@@ -204,7 +250,7 @@ async function run() {
 
         app.post("/create-payment-intent", verifyJWT, async (req, res) => {
             const { price } = req.body;
-            const amount = parseInt(price * 100);
+            const amount = price * 100;
             if (!price) return;
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: amount,
@@ -242,6 +288,18 @@ async function run() {
             const item = req.body;
             const result = await classesCollection.insertOne(item);
             res.send(result);
+        })
+
+        // payment delete and post
+        app.post('/payments', verifyJWT, async (req, res) => {
+            const payment = req.body;
+            const insertResult = await paymentsCollection.insertOne(payment);
+
+            const query = { _id: new ObjectId(payment.id) };
+
+            const deleteResult = await selectedClassesCollection.deleteOne(query)
+
+            res.send({ insertResult, deleteResult });
         })
 
         // my class update
