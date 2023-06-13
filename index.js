@@ -92,8 +92,12 @@ async function run() {
             res.send(result);
         });
 
-        app.get('/instructors', verifyJWT, async (req, res) => {
+        app.get('/instructors', async (req, res) => {
             const result = await usersCollection.find({ role: "instructor" }).toArray();
+            res.send(result);
+        });
+        app.get('/popularInstructors', async (req, res) => {
+            const result = await usersCollection.find({ role: "instructor" }).limit(6).toArray();
             res.send(result);
         });
 
@@ -135,10 +139,13 @@ async function run() {
             const result = await classesCollection.find().toArray();
             res.send(result);
         })
-        // app.get('/selectedClasses', async (req, res) => {
-        //     const result = await selectedClassesCollection.find().toArray();
-        //     res.send(result);
-        // })
+
+        // popular classes
+        app.get('/popularClasses', async (req, res) => {
+            const result = await classesCollection.find().sort({ enrolledStudents: -1 }).limit(6).toArray();
+            res.send(result);
+        });
+
 
         // security layer: verifyJWT
         // email same
@@ -218,13 +225,16 @@ async function run() {
 
             const decodedEmail = req.decoded.email;
             if (email !== decodedEmail) {
-                return res.status(403).send({ error: true, message: 'forbidden access' })
+                return res.status(403).send({ error: true, message: 'forbidden access' });
             }
 
             const query = {
                 email: email
             };
-            const result = await paymentsCollection.find(query).toArray();
+            const options = {
+                sort: { date: -1 } // Sort by date in descending order (-1)
+            };
+            const result = await paymentsCollection.find(query, options).toArray();
             res.send(result);
         });
 
@@ -356,6 +366,58 @@ async function run() {
             res.send(result);
 
         })
+
+        // update class available seats and enrolled student
+
+        app.patch('/classes/:classId', async (req, res) => {
+            const classId = req.params.classId;
+            console.log(classId);
+
+            // Retrieve the document based on the provided classId
+            const query = { _id: new ObjectId(classId) };
+            const cls = await classesCollection.findOne(query);
+
+            if (cls) {
+                // Patch the availableSeats field
+                if (cls.availableSeats) {
+                    cls.availableSeats -= 1;
+                    if (cls.availableSeats < 0) {
+                        cls.availableSeats = 0;
+                    }
+                }
+
+                // Patch the enrolledStudents field
+                if (cls.enrolledStudents) {
+                    cls.enrolledStudents += 1;
+                } else {
+                    cls.enrolledStudents = 1;
+                }
+
+                // Update the document in the classes collection
+                const result = await classesCollection.updateOne(query, { $set: cls });
+                console.log('Document patched successfully:', result.modifiedCount);
+                res.send(result);
+            } else {
+                res.status(404).send('Class not found.');
+            }
+
+        });
+
+
+        // app.patch('/classes/:id', async (req, res) => {
+        //     const id = req.params.id;
+        //     console.log(id);
+        //     const filter = { _id: new ObjectId(id) };
+        //     const updateDoc = {
+        //         $set: {
+        //             role: 'instructor'
+        //         },
+        //     };
+
+        //     const result = await classesCollection.updateOne(filter, updateDoc);
+        //     res.send(result);
+
+        // })
 
         // send feedback
         app.patch('/classes/feedback/:id', async (req, res) => {
